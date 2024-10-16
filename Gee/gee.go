@@ -6,21 +6,23 @@ import (
 )
 
 // HandlerFunc Used by Gee
-type HandlerFunc func(http.ResponseWriter, *http.Request)
+type HandlerFunc func(*Context)
 
 // Engine implement the interface of ServeHttp
 type Engine struct {
 	router map[string]HandlerFunc
 }
 
+// implement ListenAdnServe interface
 func (e *Engine) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if handler, ok := e.router[joinStr(req.Method, "-", req.URL.Path)]; ok {
-		handler(w, req)
+		handler(&Context{Request: req, ResponseWriter: w})
 	} else {
 		fmt.Fprintf(w, "404 Not Found %s", req.URL)
 	}
 }
 
+// 小写开头package外不可见
 // register a handler with method-pattern to gee
 func (e *Engine) addRoute(method string, pattern string, handler HandlerFunc) {
 	key := joinStr(method, "-", pattern)
