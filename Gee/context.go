@@ -3,30 +3,52 @@ package gee
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 )
 
-// Context with Request information and ResponseWriter
+// Context with Req information and ResponseWriter
 type Context struct {
-	Request        *http.Request
-	ResponseWriter http.ResponseWriter
+	// http origin
+	Req    *http.Request
+	Writer http.ResponseWriter
+	// request info
+	Method string
+	Path   string
+	// response info
+	StatusCode int
 }
 
 type H map[string]interface{}
 
-func (c *Context) writeStatus(status int) {
-	c.ResponseWriter.WriteHeader(status)
+// create a new Context with request and ResponseWriter
+func newContext(req *http.Request, w http.ResponseWriter) *Context {
+	return &Context{
+		Req:    req,
+		Writer: w,
+		Method: req.Method,
+		Path:   req.URL.Path,
+	}
+}
+
+// modify code to status
+func (c *Context) Status(code int) {
+	c.StatusCode = code
+	c.Writer.WriteHeader(code)
+}
+
+// add key : val to response header
+func (c *Context) setHeader(key string, val string) {
+	c.Writer.Header().Set(key, val)
 }
 
 // Query enable get data by key
 func (c *Context) Query(key string) string {
-	return c.Request.URL.Query().Get(key)
+	return c.Req.URL.Query().Get(key)
 }
 
 // QueryWithDefault while not found the key
 func (c *Context) QueryWithDefault(key string, defaultValue string) string {
-	val := c.Request.URL.Query().Get(key)
+	val := c.Req.URL.Query().Get(key)
 	if len(val) == 0 {
 		return defaultValue
 	}
@@ -35,37 +57,46 @@ func (c *Context) QueryWithDefault(key string, defaultValue string) string {
 
 // PostForm get the value
 func (c *Context) PostForm(key string) string {
-	return c.Request.PostFormValue(key)
+	return c.Req.FormValue(key)
 }
 
 // PostFormWithDefault find key mapped val
 // if not found the key then return defaultValue
 func (c *Context) PostFormWithDefault(key string, defaultValue string) string {
-	val := c.Request.PostFormValue(key)
+	val := c.Req.FormValue(key)
 	if len(val) == 0 {
 		return defaultValue
 	}
 	return val
 }
 
+// Data can write bytes type of data to response
+func (c *Context) Data(status int, data []byte) {
+	c.Status(status)
+	c.Writer.Write(data)
+}
+
 // String can Write string to Response with format
-func (c *Context) String(status int, s string, format ...any) {
-	c.writeStatus(status)
-	fmt.Fprintf(c.ResponseWriter, s, format...)
+func (c *Context) String(status int, format string, values ...interface{}) {
+	c.setHeader("Content-Type", "text/plain")
+	c.Status(status)
+	fmt.Printf(format, values...)
+	c.Writer.Write([]byte(fmt.Sprintf(format, values...)))
 }
 
 // JSON can write a map[string]interface{} typed data
 func (c *Context) JSON(status int, h H) {
-	c.writeStatus(status)
-	jsonStr, err := json.Marshal(h)
-	if err != nil {
-		log.Fatalf("JSON marshaling failed: %v", err)
+	c.setHeader("Content-Type", "application/json")
+	c.Status(status)
+	encoder := json.NewEncoder(c.Writer)
+	if err := encoder.Encode(h); err != nil {
+		http.Error(c.Writer, err.Error(), 500)
 	}
-	fmt.Fprint(c.ResponseWriter, string(jsonStr))
 }
 
 // HTML can write a html code to body
 func (c *Context) HTML(status int, htm string) {
-	c.writeStatus(status)
-	fmt.Fprint(c.ResponseWriter, htm)
+	c.setHeader("Content-Type", "text/html")
+	c.Status(status)
+	c.Writer.Write([]byte(htm))
 }

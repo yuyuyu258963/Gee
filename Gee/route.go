@@ -1,26 +1,55 @@
 package gee
 
-type roteTreeRoot struct {
+import "fmt"
+
+type router struct {
 	root *routeTreeNode
 }
 
 // 路由树的节点，将path按照"/"进行分割，然后依次添加到路由树上
 // 问题是如何区分GET和POST这些请求对应的操作，还是用map?
 type routeTreeNode struct {
-	nodes         map[string]*routeTreeNode
-	handlerFuncs  map[string][]HandlerFunc
-	middleHandler []HandlerFunc
-	isLeaf        bool
+	nodes          map[string]*routeTreeNode
+	handlers       map[string][]HandlerFunc
+	middleHandlers []HandlerFunc
+	isLeaf         bool
 }
 
-func (r *roteTreeRoot) Init() {
-	r.root = &routeTreeNode{}
-	r.root.Init()
+// crete router
+func newRouter() *router {
+	return &router{root: newRouteTreeNode()}
 }
 
-// 找到路径上的路由
-// 如果没有找到注册的这个路由就返回
-func (r *roteTreeRoot) walk(url string) *routeTreeNode {
+// create RouteTreeNode
+func newRouteTreeNode() *routeTreeNode {
+	return &routeTreeNode{
+		nodes:          make(map[string]*routeTreeNode),
+		handlers:       make(map[string][]HandlerFunc),
+		middleHandlers: make([]HandlerFunc, 0),
+		isLeaf:         false,
+	}
+}
+
+// addRoute can add a fn to monitor a request with method + pattern
+func (r *router) addRoute(method string, pattern string, fn HandlerFunc) {
+	urlPath := splitStr(pattern, "?")[0] // 避免query params
+	nodeLeaf := r.walkWithCreate(urlPath)
+	nodeLeaf.isLeaf = true
+	nodeLeaf.addHandler(method, fn)
+}
+
+// call handler with Context
+func (r *router) handle(c *Context) {
+	// 当路由找到对应路径的且是被注册的节点
+	if leafNode := r.walk(c.Path); leafNode != nil && leafNode.isLeaf {
+		leafNode.callHandler(c.Method, c)
+	} else {
+		c.Writer.Write([]byte(fmt.Sprintf("404 Not Found %s", c.Path)))
+	}
+}
+
+// fund the routeTreeNode which is url point to
+func (r *router) walk(url string) *routeTreeNode {
 	urlItems := splitStr(url, urlSep)
 	var root *routeTreeNode = r.root
 	var ok bool
@@ -32,8 +61,9 @@ func (r *roteTreeRoot) walk(url string) *routeTreeNode {
 	return root
 }
 
-// 路由到最后的节点，并返回最后走到的路由节点
-func (r *roteTreeRoot) walkWithCreate(url string) *routeTreeNode {
+// create route tree with url
+// if found a node was not create then create a new node
+func (r *router) walkWithCreate(url string) *routeTreeNode {
 	urlItems := splitStr(url, "/")
 	var root *routeTreeNode = r.root
 	var tempRoot *routeTreeNode
@@ -43,8 +73,7 @@ func (r *roteTreeRoot) walkWithCreate(url string) *routeTreeNode {
 		if tempRoot, ok = root.nodes[urlItems[i]]; ok {
 			root = tempRoot
 		} else {
-			newNode := &routeTreeNode{}
-			newNode.Init()
+			newNode := newRouteTreeNode()
 			root.nodes[urlItems[i]] = newNode
 			root = newNode
 		}
@@ -53,28 +82,24 @@ func (r *roteTreeRoot) walkWithCreate(url string) *routeTreeNode {
 	return root
 }
 
-func (r *routeTreeNode) Init() {
-	r.nodes = make(map[string]*routeTreeNode)
-	r.handlerFuncs = make(map[string][]HandlerFunc, 0)
-	r.middleHandler = make([]HandlerFunc, 0)
-}
-
-func (r *routeTreeNode) addHandler(method string, handler HandlerFunc) {
-	if handlers, ok := r.handlerFuncs[method]; ok {
-		handlers = append(handlers, handler)
-		r.handlerFuncs[method] = handlers
+// add a handler at routeTreeNode with method and fn
+func (r *routeTreeNode) addHandler(method string, fn HandlerFunc) {
+	if handlers, ok := r.handlers[method]; ok {
+		handlers = append(handlers, fn)
+		r.handlers[method] = handlers
 	} else {
-		r.handlerFuncs[method] = []HandlerFunc{handler}
+		r.handlers[method] = []HandlerFunc{fn}
 	}
 }
 
-func (r *routeTreeNode) addMiddleHandler(handler HandlerFunc) {
-	r.middleHandler = append(r.middleHandler, handler)
+// add a handler at routeTreeNode with method and fn
+func (r *routeTreeNode) addMiddleHandler(fn HandlerFunc) {
+	r.middleHandlers = append(r.middleHandlers, fn)
 }
 
-// 调用路由节点上的所有handler
+// call all handler set on the routeTreeNode
 func (r *routeTreeNode) callHandler(method string, c *Context) {
-	for i := range r.handlerFuncs[method] {
-		r.handlerFuncs[method][i](c)
+	for i := range r.handlers[method] {
+		r.handlers[method][i](c)
 	}
 }

@@ -12,21 +12,21 @@ func indexHandler(c *gee.Context) {
 	fmt.Println(c.Query("name"))
 	fmt.Println(c.Query("age"))
 	fmt.Println(c.Query("cccc"))
-	c.String(http.StatusOK, "index path: %v", c.Request.URL.Path)
+	c.String(http.StatusOK, "index path: %v", c.Path)
 }
 
 func htmHandler(c *gee.Context) {
-	c.String(http.StatusOK, `<h1>Hello Gee</h1>
+	c.HTML(http.StatusOK, `<h1>Hello Gee</h1>
 														<p2>html!</p2>`)
 }
 
 func htmaHandler(c *gee.Context) {
-	c.String(http.StatusOK, `<h1>Hello Gee</h1>
+	c.HTML(http.StatusOK, `<h1>Hello Gee</h1>
 														<p2>html a!</p2>`)
 }
 
 func htmabcHandler(c *gee.Context) {
-	c.String(http.StatusOK, `<h1>Hello Gee</h1>
+	c.HTML(http.StatusOK, `<h1>Hello Gee</h1>
 														<p2>html abc!</p2>`)
 }
 
