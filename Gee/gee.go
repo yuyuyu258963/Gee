@@ -10,13 +10,21 @@ type HandlerFunc func(*Context)
 
 // Engine implement the interface of ServeHttp
 type Engine struct {
-	router map[string]HandlerFunc
+	router *roteTreeRoot
+}
+
+// Init
+func (e *Engine) Init() {
+	e.router = &roteTreeRoot{}
+	e.router.Init()
 }
 
 // implement ListenAdnServe interface
 func (e *Engine) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	if handler, ok := e.router[joinStr(req.Method, "-", req.URL.Path)]; ok {
-		handler(&Context{Request: req, ResponseWriter: w})
+	// 当路由找到对应路径的且是被注册的节点
+	if leafNode := e.router.walk(req.URL.Path); leafNode != nil && leafNode.isLeaf {
+		c := &Context{Request: req, ResponseWriter: w}
+		leafNode.callHandler(req.Method, c)
 	} else {
 		fmt.Fprintf(w, "404 Not Found %s", req.URL)
 	}
@@ -25,8 +33,9 @@ func (e *Engine) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 // 小写开头package外不可见
 // register a handler with method-pattern to gee
 func (e *Engine) addRoute(method string, pattern string, handler HandlerFunc) {
-	key := joinStr(method, "-", pattern)
-	e.router[key] = handler
+	urlPath := splitStr(pattern, "?")[0] // 避免query params
+	roteTreeLeaf := e.router.walkWithCreate(urlPath)
+	roteTreeLeaf.addHandler(method, handler)
 }
 
 // GER defines a method to add GET request
@@ -44,7 +53,13 @@ func (e *Engine) Run(port string) error {
 	return http.ListenAndServe(port, e)
 }
 
+func (e *Engine) Test() {
+	fmt.Println(e.router)
+}
+
 // New is the constructor of gee.Engine
 func New() *Engine {
-	return &Engine{make(map[string]HandlerFunc)}
+	e := &Engine{}
+	e.Init()
+	return e
 }
