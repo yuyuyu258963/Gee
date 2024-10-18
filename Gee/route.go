@@ -1,6 +1,8 @@
 package gee
 
-import "fmt"
+import (
+	"fmt"
+)
 
 type router struct {
 	root *routeTreeNode
@@ -9,10 +11,9 @@ type router struct {
 // 路由树的节点，将path按照"/"进行分割，然后依次添加到路由树上
 // 问题是如何区分GET和POST这些请求对应的操作，还是用map?
 type routeTreeNode struct {
-	nodes          map[string]*routeTreeNode
-	handlers       map[string][]HandlerFunc
-	middleHandlers []HandlerFunc
-	isLeaf         bool
+	nodes    map[string]*routeTreeNode
+	handlers map[string][]HandlerFunc
+	isLeaf   bool
 }
 
 // crete router
@@ -23,10 +24,9 @@ func newRouter() *router {
 // create RouteTreeNode
 func newRouteTreeNode() *routeTreeNode {
 	return &routeTreeNode{
-		nodes:          make(map[string]*routeTreeNode),
-		handlers:       make(map[string][]HandlerFunc),
-		middleHandlers: make([]HandlerFunc, 0),
-		isLeaf:         false,
+		nodes:    make(map[string]*routeTreeNode),
+		handlers: make(map[string][]HandlerFunc),
+		isLeaf:   false,
 	}
 }
 
@@ -90,11 +90,6 @@ func (r *routeTreeNode) addHandler(method string, fn HandlerFunc) {
 	} else {
 		r.handlers[method] = []HandlerFunc{fn}
 	}
-}
-
-// add a handler at routeTreeNode with method and fn
-func (r *routeTreeNode) addMiddleHandler(fn HandlerFunc) {
-	r.middleHandlers = append(r.middleHandlers, fn)
 }
 
 // call all handler set on the routeTreeNode
