@@ -42,7 +42,10 @@ func main() {
 	r.GET("/", indexHandler)
 	r.GET("/htm", htmHandler)
 	r.GET("/htm/a/c", htmaHandler)
-	r.GET("/htm/a/b/c", htmaHandler)
+	r.GET("/htm/*filePath", htmaHandler)
 	r.POST("/login", helloHandler)
+	r.GET("/assets/*filepath", func(c *gee.Context) {
+		c.JSON(http.StatusOK, gee.H{"filepath": c.Param("filepath")})
+	})
 	log.Fatal(r.Run(":8888"))
 }

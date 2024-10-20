@@ -14,6 +14,7 @@ type Context struct {
 	// request info
 	Method string
 	Path   string
+	Params map[string]string
 	// response info
 	StatusCode int
 }
@@ -39,6 +40,12 @@ func (c *Context) Status(code int) {
 // add key : val to response header
 func (c *Context) setHeader(key string, val string) {
 	c.Writer.Header().Set(key, val)
+}
+
+// 获得请求path
+func (c *Context) Param(key string) string {
+	value, _ := c.Params[key]
+	return value
 }
 
 // Query enable get data by key
