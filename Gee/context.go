@@ -87,7 +87,6 @@ func (c *Context) Data(status int, data []byte) {
 func (c *Context) String(status int, format string, values ...interface{}) {
 	c.setHeader("Content-Type", "text/plain")
 	c.Status(status)
-	fmt.Printf(format, values...)
 	c.Writer.Write([]byte(fmt.Sprintf(format, values...)))
 }
 

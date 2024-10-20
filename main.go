@@ -15,35 +15,43 @@ func indexHandler(c *gee.Context) {
 	c.String(http.StatusOK, "index path: %v", c.Path)
 }
 
-func htmHandler(c *gee.Context) {
-	c.HTML(http.StatusOK, `<h1>Hello Gee</h1>
-														<p2>html!</p2>`)
-}
-
-func htmaHandler(c *gee.Context) {
-	c.HTML(http.StatusOK, `<h1>Hello Gee</h1>
-														<p2>html a!</p2>`)
-}
-
-func htmabcHandler(c *gee.Context) {
-	c.HTML(http.StatusOK, `<h1>Hello Gee</h1>
-														<p2>html abc!</p2>`)
-}
-
-func helloHandler(c *gee.Context) {
-	c.JSON(http.StatusOK, gee.H{
-		"name": c.PostForm("name"),
-		"pwd":  c.PostFormWithDefault("pwd", "null"),
-	})
-}
-
 func main() {
 	r := gee.New()
+
 	r.GET("/", indexHandler)
-	r.GET("/htm", htmHandler)
-	r.GET("/htm/a/c", htmaHandler)
-	r.GET("/htm/*filePath", htmaHandler)
-	r.POST("/login", helloHandler)
+
+	v1 := r.Group("/v1")
+	{
+		v1.GET("/", func(c *gee.Context) {
+			c.String(http.StatusOK, "url path: %v", c.Path)
+		})
+		v1.GET("/:name", func(c *gee.Context) {
+			fmt.Println(c.Param("name"))
+			c.String(http.StatusOK, "fullPath: %s name: %v", c.Path, c.Param("name"))
+		})
+	}
+
+	v2 := r.Group("/v2")
+	{
+		v2.GET("/hello", func(c *gee.Context) {
+			c.String(http.StatusOK, "hello gee")
+		})
+		v2.POST("/login", func(c *gee.Context) {
+			c.JSON(http.StatusOK, gee.H{
+				"username": c.PostForm("username"),
+				"pwd":      c.PostFormWithDefault("pwd", "null"),
+			})
+		})
+
+		v3 := v2.Group("/open")
+		{
+			v3.GET("/doc", func(c *gee.Context) {
+				fmt.Println(c.Path)
+				c.HTML(http.StatusOK, "<p1> open/doc </p1>")
+			})
+		}
+	}
+
 	r.GET("/assets/*filepath", func(c *gee.Context) {
 		c.JSON(http.StatusOK, gee.H{"filepath": c.Param("filepath")})
 	})
