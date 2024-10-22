@@ -1,0 +1,11 @@
+<html>
+    <!-- 静态文件加载 因为注册了r.Static("/assets", "./static") -->
+    <!-- 所以/assets/css/index.css => ./static/css/index.css-->
+    <link rel="stylesheet" href="/assets/css/index.css">
+    <p>/assets/css/index.css is loaded</p>
+    <!-- 自定义模版渲染函数使用 -->
+    <p> {{FormatAsDate .Now}} </p>
+    <!-- 变量使用 -->
+    <p> Hello {{.Name}} </p>
+
+</html>

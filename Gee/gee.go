@@ -1,7 +1,9 @@
 package gee
 
 import (
+	"html/template"
 	"net/http"
+	"path"
 	"strings"
 )
 
@@ -10,8 +12,10 @@ type HandlerFunc func(*Context)
 
 // Engine implement the interface of ServeHttp
 type Engine struct {
-	*RouteGroup
-	route *router
+	*RouteGroup   // index RouteGroup
+	route         *router
+	htmlTemplates *template.Template // for html render
+	funcMap       template.FuncMap
 }
 
 // 因为routeGroup中的操作和Engine上的方法有很多重叠所以写到这个文件中
@@ -44,12 +48,23 @@ func newRouteGroup(prefix string, parent *RouteGroup, e *Engine) *RouteGroup {
 // implement ListenAdnServe interface
 func (e *Engine) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	c := newContext(req, w) // 每个请求处理的开始时创建一个上下文
+	c.engine = e
 
 	middlewares := e.collectMiddlewares(c.Path)
 	c.handles = append(c.handles, middlewares...)
 	fn := e.route.getHandle(c)
 	c.handles = append(c.handles, fn) // 表示中间件执行结束后再执行路由树上查找到的处理函数
 	c.Next()
+}
+
+// set template func
+func (e *Engine) SetFuncMap(funcMap template.FuncMap) {
+	e.funcMap = funcMap
+}
+
+// 将所有的模版都添加到内存中
+func (e *Engine) LoadHTMLGlob(pattern string) {
+	e.htmlTemplates = template.Must(template.New("").Funcs(e.funcMap).ParseGlob(pattern))
 }
 
 // run and listen request at a port
@@ -93,6 +108,36 @@ func (rg *RouteGroup) collectMiddlewares(pattern string) []HandlerFunc {
 		}
 	}
 	return ws
+}
+
+// 静态资源处理逻辑
+func (rg *RouteGroup) createStaticHandler(relativePath string, fs http.FileSystem) HandlerFunc {
+	absolutePath := path.Join(rg.prefix, relativePath)
+	// 类似于http.ListenAndServe， http.StripPrefix就是给这个请求前缀的url通过传入的handler处理
+	// 所以这个 absolutePath 指的是网页上请求fs文件系统使用的路径是绝对的
+	fileServer := http.StripPrefix(absolutePath, http.FileServer(fs))
+	return func(c *Context) {
+		file := c.Param("filepath")
+		// check if the file exists and if we permission to access it
+		if _, err := fs.Open(file); err != nil {
+			c.Status(http.StatusNotFound)
+			return
+		}
+		fileServer.ServeHTTP(c.Writer, c.Req) // 返回结果
+	}
+}
+
+// serve static files
+// 将磁盘上的某个文件夹root映射到relativePath
+// r := gee.New()
+// r.Static("/assets", "./static")
+// r.Run(":9999")
+// 用户访问 "/assets/hom/doc" 就对应 "./static/hom/doc"
+func (rg *RouteGroup) Static(relativePath string, root string) {
+	handler := rg.createStaticHandler(relativePath, http.Dir(root))
+	// 注册路由
+	urlPattern := path.Join(relativePath, "/*filepath")
+	rg.GET(urlPattern, handler)
 }
 
 // New is the constructor of gee.Engine

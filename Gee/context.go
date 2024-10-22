@@ -22,6 +22,8 @@ type Context struct {
 
 	// response info
 	StatusCode int
+
+	engine *Engine
 }
 
 type H map[string]interface{}
@@ -120,8 +122,10 @@ func (c *Context) JSON(status int, h H) {
 }
 
 // HTML can write a html code to body
-func (c *Context) HTML(status int, htm string) {
+func (c *Context) HTML(status int, name string, data interface{}) {
 	c.setHeader("Content-Type", "text/html")
 	c.Status(status)
-	c.Writer.Write([]byte(htm))
+	if err := c.engine.htmlTemplates.ExecuteTemplate(c.Writer, name, data); err != nil {
+		c.String(500, err.Error())
+	}
 }

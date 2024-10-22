@@ -3,8 +3,10 @@ package main
 import (
 	"fmt"
 	gee "gee/Gee"
+	"html/template"
 	"log"
 	"net/http"
+	"time"
 )
 
 func indexHandler(c *gee.Context) {
@@ -15,34 +17,33 @@ func indexHandler(c *gee.Context) {
 	c.String(http.StatusOK, "index path: %v", c.Path)
 }
 
+// 模版中可使用的函数
+// 例如：
+// <p> {{FormatAsDate .Now}} </p>
+// 可以在模版中调用该函数
+func FormatAsDate(t time.Time) string {
+	year, month, day := t.Date()
+	return fmt.Sprintf("%d-%02d-%02d", year, month, day)
+}
+
 func main() {
 	r := gee.New()
-
 	r.GET("/", indexHandler)
-
-	r.Use(gee.Logger()) // 根Group中间件添加
-
-	v1 := r.Group("/v1")
-	{
-		v1.GET("/", func(c *gee.Context) {
-			c.String(http.StatusOK, "url path: %v", c.Path)
-		})
-		v1.GET("/:name", func(c *gee.Context) {
-			fmt.Println(c.Param("name"))
-			c.String(http.StatusOK, "fullPath: %s name: %v", c.Path, c.Param("name"))
-		})
-	}
-
-	v2 := r.Group("/v2")
-	{
-		v2.Use(gee.Forbidden()) // Abort测试
-		v2.GET("/hello", func(c *gee.Context) {
-			c.String(http.StatusOK, "hello gee")
-		})
-	}
-
-	r.GET("/assets/*filepath", func(c *gee.Context) {
-		c.JSON(http.StatusOK, gee.H{"filepath": c.Param("filepath")})
+	// 设置自定义模版函数
+	r.SetFuncMap(template.FuncMap{
+		"FormatAsDate": FormatAsDate,
 	})
+	// 注册所有模版，并注册FuncMap
+	r.LoadHTMLGlob("./templates/*")
+
+	r.Static("/assets", "./static") // 将网页中的assets/Path 映射到 ./static/Path
+
+	r.GET("/cs", func(c *gee.Context) {
+		c.HTML(http.StatusOK, "css.tmpl", gee.H{
+			"Now":  time.Date(2024, 12, 22, 0, 0, 0, 0, time.UTC),
+			"Name": c.QueryWithDefault("name", "nil"),
+		})
+	})
+
 	log.Fatal(r.Run(":8888"))
 }
