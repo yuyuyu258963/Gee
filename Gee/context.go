@@ -15,6 +15,11 @@ type Context struct {
 	Method string
 	Path   string
 	Params map[string]string
+
+	// Controller
+	index   int           // 当前在处理的控制函数
+	handles []HandlerFunc // ...中间件，注册的请求处理函数
+
 	// response info
 	StatusCode int
 }
@@ -24,11 +29,25 @@ type H map[string]interface{}
 // create a new Context with request and ResponseWriter
 func newContext(req *http.Request, w http.ResponseWriter) *Context {
 	return &Context{
-		Req:    req,
-		Writer: w,
-		Method: req.Method,
-		Path:   req.URL.Path,
+		Req:     req,
+		Writer:  w,
+		Method:  req.Method,
+		Path:    req.URL.Path,
+		index:   -1,
+		handles: make([]HandlerFunc, 0),
 	}
+}
+
+// 往后执行处理函数
+func (c *Context) Next() {
+	for c.index = c.index + 1; c.index < len(c.handles); c.index++ {
+		c.handles[c.index](c)
+	}
+}
+
+// 终止执行后续的处理函数
+func (c *Context) Abort() {
+	c.index = len(c.handles)
 }
 
 // modify code to status

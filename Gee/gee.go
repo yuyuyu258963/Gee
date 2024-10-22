@@ -1,8 +1,8 @@
 package gee
 
 import (
-	"fmt"
 	"net/http"
+	"strings"
 )
 
 // HandlerFunc Used by Gee
@@ -40,25 +40,17 @@ func newRouteGroup(prefix string, parent *RouteGroup, e *Engine) *RouteGroup {
 	}
 }
 
+// TODO:
 // implement ListenAdnServe interface
 func (e *Engine) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	c := newContext(req, w) // 每个请求处理的开始时创建一个上下文
-	e.route.handle(c)
+
+	middlewares := e.collectMiddlewares(c.Path)
+	c.handles = append(c.handles, middlewares...)
+	fn := e.route.getHandle(c)
+	c.handles = append(c.handles, fn) // 表示中间件执行结束后再执行路由树上查找到的处理函数
+	c.Next()
 }
-
-// func (e *Engine) Group(prefix string) (rg *RouteGroup) {
-// 	return e.RouteGroup.Group(prefix)
-// }
-
-// GER defines a method to add GET request
-// func (e *Engine) GET(path string, handler HandlerFunc) {
-// 	e.route.addRoute("GET", path, handler)
-// }
-
-// // POST defines a method to add POST request
-// func (e *Engine) POST(path string, handler HandlerFunc) {
-// 	e.route.addRoute("POST", path, handler)
-// }
 
 // run and listen request at a port
 func (e *Engine) Run(port string) error {
@@ -75,7 +67,9 @@ func (rg *RouteGroup) POST(path string, handler HandlerFunc) {
 
 // 嵌套地添加分组
 func (rg *RouteGroup) Group(prefix string) (g *RouteGroup) {
-	prefix = rg.prefix + "/" + prefix
+	if rg.engine.RouteGroup != rg {
+		prefix = rg.prefix + "/" + prefix
+	}
 
 	if prefix[len(prefix)-1] == '/' {
 		prefix = prefix[:len(prefix)-1]
@@ -85,8 +79,20 @@ func (rg *RouteGroup) Group(prefix string) (g *RouteGroup) {
 	return g
 }
 
-func (e *Engine) Test() {
-	fmt.Println(e.route)
+// 在分组控件上新增中间件
+func (rg *RouteGroup) Use(fn ...HandlerFunc) {
+	rg.middlewares = append(rg.middlewares, fn...)
+}
+
+// 根据请求路径收集所有的中间件
+func (rg *RouteGroup) collectMiddlewares(pattern string) []HandlerFunc {
+	ws := rg.middlewares
+	for _, w := range rg.nextGroups {
+		if strings.HasPrefix(pattern, w.prefix) { /// 递归地获得所有的中间件
+			ws = append(ws, w.collectMiddlewares(pattern)...)
+		}
+	}
+	return ws
 }
 
 // New is the constructor of gee.Engine

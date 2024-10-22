@@ -20,6 +20,8 @@ func main() {
 
 	r.GET("/", indexHandler)
 
+	r.Use(gee.Logger()) // 根Group中间件添加
+
 	v1 := r.Group("/v1")
 	{
 		v1.GET("/", func(c *gee.Context) {
@@ -33,23 +35,10 @@ func main() {
 
 	v2 := r.Group("/v2")
 	{
+		v2.Use(gee.Forbidden()) // Abort测试
 		v2.GET("/hello", func(c *gee.Context) {
 			c.String(http.StatusOK, "hello gee")
 		})
-		v2.POST("/login", func(c *gee.Context) {
-			c.JSON(http.StatusOK, gee.H{
-				"username": c.PostForm("username"),
-				"pwd":      c.PostFormWithDefault("pwd", "null"),
-			})
-		})
-
-		v3 := v2.Group("/open")
-		{
-			v3.GET("/doc", func(c *gee.Context) {
-				fmt.Println(c.Path)
-				c.HTML(http.StatusOK, "<p1> open/doc </p1>")
-			})
-		}
 	}
 
 	r.GET("/assets/*filepath", func(c *gee.Context) {

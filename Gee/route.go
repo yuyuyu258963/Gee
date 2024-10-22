@@ -76,16 +76,15 @@ func (r *router) getRoute(method string, pattern string) (*node, map[string]stri
 	return nil, nil
 }
 
-// 根据沪Context处理请求
-func (r *router) handle(c *Context) {
+// 根据当前的请求在路由树上查找处理函数
+func (r *router) getHandle(c *Context) HandlerFunc {
 	n, params := r.getRoute(c.Method, c.Path)
 	if n != nil {
 		c.Params = params
-		key := c.Method + "-" + n.pattern // 注意这里需要调用的路由注册时的pattern
-		r.handles[key](c)
-	} else {
-		c.String(http.StatusNotFound, "404 NOT FOUND:%s\n", c.Path)
+		key := c.Method + "-" + n.pattern
+		return r.handles[key]
 	}
+	return notFoundHandle
 }
 
 // 匹配成功的节点，用于插入
@@ -160,4 +159,9 @@ func (n *node) search(pattern string, parts []string, height int) *node {
 		}
 	}
 	return nil
+}
+
+// 未找到页面的HandlerFunc
+func notFoundHandle(c *Context) {
+	c.String(http.StatusNotFound, "404 NOT FOUND:%s\n", c.Path)
 }
