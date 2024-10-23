@@ -26,7 +26,7 @@ func FormatAsDate(t time.Time) string {
 	return fmt.Sprintf("%d-%02d-%02d", year, month, day)
 }
 
-func main() {
+func serve() {
 	r := gee.New()
 	r.GET("/", indexHandler)
 	// 设置自定义模版函数
@@ -46,4 +46,24 @@ func main() {
 	})
 
 	log.Fatal(r.Run(":8888"))
+}
+
+func test_recover() {
+	r := gee.New()
+	r.UseDefault()
+	r.GET("/", func(c *gee.Context) {
+		names := []string{"foo", "bar"}
+		c.String(200, names[5])
+	})
+
+	r.GET("/h", func(c *gee.Context) {
+		c.String(http.StatusOK, "ok!cc")
+	})
+
+	r.Run(":8888")
+}
+
+func main() {
+	test_recover()
+	fmt.Println("exec ok!")
 }

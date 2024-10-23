@@ -67,6 +67,12 @@ func (e *Engine) LoadHTMLGlob(pattern string) {
 	e.htmlTemplates = template.Must(template.New("").Funcs(e.funcMap).ParseGlob(pattern))
 }
 
+// add default middlewares
+func (e *Engine) UseDefault() {
+	// 先添加Logger是为了能在Recover后依然执行日志记录
+	e.Use(Logger(), Recovery())
+}
+
 // run and listen request at a port
 func (e *Engine) Run(port string) error {
 	return http.ListenAndServe(port, e)

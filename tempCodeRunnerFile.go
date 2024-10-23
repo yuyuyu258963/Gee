@@ -1,2 +1,2 @@
-*gee.Context) {
-			c.JSON(http.StatusOK, g
+
+	r.GET("/", func(c *gee.Context) {
